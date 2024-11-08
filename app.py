@@ -66,6 +66,17 @@ with tab2:
     data_additional['Location'] = data_additional['Location'].astype(str)  # Ensure 'Location' column is treated as string
     data_additional['Specialty'] = data_additional['Specialty'].astype(str)  # Ensure 'Specialty' column is treated as string
     data_additional['Insurance'] = data_additional['Insurance'].astype(str)  # Ensure 'Insurance' column is treated as string
+    data_additional['Number'] = data_additional['Number'].astype(str)  # Ensure 'Number' column is treated as string
+    data_additional['Address'] = data_additional['Address'].astype(str)  # Ensure 'Address' column is treated as string
+
+    # Group data by doctor name and aggregate columns
+    aggregated_data = data_additional.groupby('Doctor').agg({
+        'Insurance': lambda x: ', '.join(sorted(x.unique())),
+        'Location': lambda x: ', '.join(sorted(x.unique())),
+        'Specialty': lambda x: ', '.join(sorted(x.unique())),
+        'Number': lambda x: ', '.join(sorted(x.unique())),  # Aggregate all phone numbers
+        'Address': lambda x: ', '.join(sorted(x.unique())),  # Aggregate all addresses
+    }).reset_index()
 
     # Filter options for Location, Specialty, and Insurance
     st.write("### Filters")  # Subtitle for filter section
@@ -76,25 +87,42 @@ with tab2:
     selected_insurance = st.selectbox("Select Insurance", options=['All'] + sorted(data_additional['Insurance'].dropna().unique().tolist()))  # Dropdown to select insurance
 
     # Apply filters based on selections
-    filtered_data_additional = data_additional.copy()  # Start with a copy of the original data
+    filtered_data_aggregated = aggregated_data.copy()  # Start with a copy of the aggregated data
     if selected_location != 'All':
-        filtered_data_additional = filtered_data_additional[filtered_data_additional['Location'] == selected_location]  # Filter by selected location if not 'All'
+        filtered_data_aggregated = filtered_data_aggregated[filtered_data_aggregated['Location'].str.contains(selected_location, case=False, na=False)]  # Filter by selected location if not 'All'
     if selected_specialty != 'All':
-        filtered_data_additional = filtered_data_additional[filtered_data_additional['Specialty'] == selected_specialty]  # Filter by selected specialty if not 'All'
+        filtered_data_aggregated = filtered_data_aggregated[filtered_data_aggregated['Specialty'].str.contains(selected_specialty, case=False, na=False)]  # Filter by selected specialty if not 'All'
     if selected_insurance != 'All':
-        filtered_data_additional = filtered_data_additional[filtered_data_additional['Insurance'] == selected_insurance]  # Filter by selected insurance if not 'All'
+        filtered_data_aggregated = filtered_data_aggregated[filtered_data_aggregated['Insurance'].str.contains(selected_insurance, case=False, na=False)]  # Filter by selected insurance if not 'All'
 
     # Display the filtered table with specific columns
     st.write("### Filtered Doctor Details")  # Subtitle for the results table
     st.write(
-        filtered_data_additional[['Doctor', 'Specialty', 'Location', 'Insurance', 'Number', 'Address', 'Postal Code']]  # Select relevant columns to display
+        filtered_data_aggregated[['Doctor', 'Specialty', 'Location', 'Insurance', 'Number', 'Address']]  # Select relevant columns to display
         .rename(columns={
             'Doctor': 'Doctor Name',  # Rename columns for better readability
             'Insurance': 'Insurance',
             'Specialty': 'Specialty', 
             'Location': 'Location',  
-            'Number': 'Contact Number',
-            'Address': 'Address',
-            'Postal Code': 'Postal Code'
+            'Number': 'Contact Numbers',
+            'Address': 'Addresses',
         })
     )
+
+    # Search functionality for doctor details
+    st.write("### Search for a Doctor")  # Subtitle for search section
+    search_query = st.text_input("Enter the doctor's name to search:")  # Input field for doctor name search
+    if search_query:
+        matching_doctors = aggregated_data[aggregated_data['Doctor'].str.contains(search_query, case=False, na=False)]  # Search for matching doctor names
+        if not matching_doctors.empty:
+            selected_doctor = st.selectbox("Select a doctor", matching_doctors['Doctor'].unique())  # Dropdown with matching doctor names
+            if selected_doctor:
+                doctor_data = matching_doctors[matching_doctors['Doctor'] == selected_doctor].iloc[0]  # Get the data for the selected doctor
+                st.write(f"### Details for {selected_doctor}")  # Display details for the selected doctor
+                st.write(f"**Contact Numbers:** {doctor_data['Number']}")
+                st.write(f"**Addresses:** {doctor_data['Address']}")
+                st.write(f"**Specialty:** {doctor_data['Specialty']}")
+                st.write(f"**Location:** {doctor_data['Location']}")
+                st.write(f"**Insurance:** {doctor_data['Insurance']}")
+        else:
+            st.write("No matching doctors found.")  # Message if no doctors match the search query
