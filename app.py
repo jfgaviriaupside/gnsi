@@ -90,9 +90,9 @@ with tab2:
         filtered_data_additional[['Doctor', 'Specialty', 'Location', 'Insurance', 'Number', 'Address', 'Postal Code']]  # Select relevant columns to display
         .rename(columns={
             'Doctor': 'Doctor Name',  # Rename columns for better readability
+            'Insurance': 'Insurance',
             'Specialty': 'Specialty', 
-            'Location': 'Location', 
-            'Insurance': 'Insurance', 
+            'Location': 'Location',  
             'Number': 'Contact Number',
             'Address': 'Address',
             'Postal Code': 'Postal Code'
