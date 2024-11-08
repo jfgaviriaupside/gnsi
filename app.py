@@ -11,7 +11,7 @@ st.sidebar.title("GNSI Doctor Analysis")  # Set the title for the sidebar
 st.sidebar.write("Analyze doctors based on unique patients served, referral growth, and other parameters.")  # Sidebar description
 
 # Tabs for different datasets
-tab1, tab2 = st.tabs(["Unique Patients Analysis", "Doctor Details Analysis"])  # Create two tabs for navigating between different analyses
+tab1, tab2 = st.tabs(["Referring Doctors Ranking", "Potential Market of Doctors"])  # Create two tabs for navigating between different analyses
 
 # --- Tab 1: Unique Patients Analysis ---
 with tab1:
