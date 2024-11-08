@@ -4,7 +4,7 @@ import pandas as pd
 # Load the data
 file_path = 'doctors_gnsi.xlsx'
 data_main = pd.read_excel(file_path)  # Load the main dataset containing unique patient information
-data_additional = pd.read_excel('Potential Reltaions GNSI ACTUALIZADO.xlsx', sheet_name='Doctor Details')  # Load additional dataset for doctor details
+data_additional = pd.read_excel('Potential Reltaions GNSI ACTUALIZADO.xlsx', sheet_name='Doctor Details')  # Load additional dataset for doctor detail
 
 # Sidebar: App title and description
 st.sidebar.title("GNSI Doctor Analysis")  # Set the title for the sidebar
