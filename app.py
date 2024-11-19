@@ -118,7 +118,7 @@ with tab2:
         st.write("### Filters")  # Subtitle for filter section
 
         # Dropdown filters
-        selected_location = st.selectbox("Select Location", options=['All'] + sorted(data_additional['Location'].dropna().unique().tolist()))  # Dropdown to select location
+        selected_location = st.selectbox("Select City", options=['All'] + sorted(data_additional['Location'].dropna().unique().tolist()))  # Dropdown to select location
         selected_specialty = st.selectbox("Select Specialty", options=['All'] + sorted(data_additional['Specialty'].dropna().unique().tolist()))  # Dropdown to select specialty
         selected_insurance = st.selectbox("Select Insurance", options=['All'] + sorted(data_additional['Insurance'].dropna().unique().tolist()))  # Dropdown to select insurance
 
