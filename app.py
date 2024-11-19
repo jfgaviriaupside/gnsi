@@ -139,7 +139,7 @@ with tab2:
                 'Doctor': 'Doctor Name',  # Rename columns for better readability
                 'Insurance': 'Insurance',
                 'Specialty': 'Specialty', 
-                'Location': 'Location',  
+                'Location': 'City',  
                 'Number': 'Contact Numbers',
                 'Address': 'Addresses',
             })
