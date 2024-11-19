@@ -27,6 +27,24 @@ with tab1:
     # Page Title
     st.title("Referring Doctors Ranking")  # Title for the first tab
 
+    # Add search functionality at the top
+    st.write("### Search for a Doctor")
+    search_query = st.text_input("Enter the doctor's name to search:", key="tab1_search")
+    if search_query:
+        matching_doctors = data_main[data_main['ctm name'].str.contains(search_query, case=False, na=False)]
+        if not matching_doctors.empty:
+            selected_doctor = st.selectbox("Select a doctor", matching_doctors['ctm name'].unique(), key="tab1_doctor_select")
+            if selected_doctor:
+                doctor_data = matching_doctors[matching_doctors['ctm name'] == selected_doctor].iloc[0]
+                st.write(f"### Details for {selected_doctor}")
+                st.write(f"**Address:** {doctor_data['ctm addr']}")
+                st.write(f"**Specialty:** {doctor_data['ctm role']}")
+                st.write(f"**Department:** {doctor_data['curr dprtmnt']}")
+                st.write(f"**Phone:** {doctor_data.get('ctm phone', 'N/A')}")  # Add if column exists
+                st.write(f"**Fax:** {doctor_data.get('ctm fax', 'N/A')}")      # Add if column exists
+                st.write(f"**City:** {doctor_data['ctm city']}")
+                st.write(f"**Zip Code:** {doctor_data.get('ctm zip', 'N/A')}")  # Add if column exists
+
     # Check if the required columns are present
     required_columns_main = ['curr dprtmnt', 'ctm role', 'ctm city', 'ctm name', 'total unique patients served', 'CAGR']
     if all(col in data_main.columns for col in required_columns_main):
@@ -39,7 +57,7 @@ with tab1:
         st.write("### Filters")  # Subtitle for filter section
 
         # Dropdown filters
-        selected_department = st.selectbox("Select Department", options=['All'] + sorted(data_main['curr dprtmnt'].dropna().unique().tolist()))  # Dropdown to select department
+        selected_department = st.selectbox("Select Location", options=['All'] + sorted(data_main['curr dprtmnt'].dropna().unique().tolist()))  # Dropdown to select location
         selected_role = st.selectbox("Select Role", options=['All'] + sorted(data_main['ctm role'].dropna().unique().tolist()))  # Dropdown to select role
         selected_city = st.selectbox("Select City", options=['All'] + sorted(data_main['ctm city'].dropna().unique().tolist()))  # Dropdown to select city
 
@@ -58,15 +76,16 @@ with tab1:
         # Display the filtered table with specific columns
         st.write("### Top Doctors by Unique Patients Served")  # Subtitle for the results table
         st.write(
-            filtered_data[['ctm name', 'ctm role', 'ctm city', 'total unique patients served', 'CAGR']]  # Select relevant columns to display
+            filtered_data[['ctm name', 'ctm role', 'ctm city', 'total unique patients served', 'CAGR', 'curr dprtmnt']]  # Added 'curr dprtmnt'
             .rename(columns={
-                'ctm name': 'Doctor Name',  # Rename columns for better readability
+                'ctm name': 'Doctor Name',
                 'ctm role': 'Role', 
                 'ctm city': 'City', 
                 'total unique patients served': 'Unique Patients', 
-                'CAGR': 'CAGR (2023-2024) (%)'
+                'CAGR': 'CAGR (2023-2024) (%)',
+                'curr dprtmnt': 'Address'  # Added new column rename
             })
-            .style.format({'Unique Patients': '{:.0f}', 'CAGR (%)': '{:.2f}%'})  # Format numeric values for better display
+            .style.format({'Unique Patients': '{:.0f}', 'CAGR (%)': '{:.2f}%'})
         )
     else:
         st.error("The required columns are missing in the main dataset.")
