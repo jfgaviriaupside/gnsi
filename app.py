@@ -1,5 +1,60 @@
 import streamlit as st
 import pandas as pd
+import folium
+from streamlit_folium import st_folium
+from dataclasses import dataclass
+from typing import Tuple, List
+import math
+import json
+
+@dataclass
+class GNSILocation:
+    name: str
+    coordinates: Tuple[float, float]
+
+    def distance_to(self, lat: float, lon: float) -> float:
+        """Calculate distance in miles to given coordinates using Haversine formula"""
+        R = 3959.87433  # Earth's radius in miles
+
+        lat1, lon1 = self.coordinates
+        lat1, lon1 = math.radians(lat1), math.radians(lon1)
+        lat2, lon2 = math.radians(lat), math.radians(lon)
+
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+
+        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+        c = 2 * math.asin(math.sqrt(a))
+        return R * c
+
+# Define GNSI locations
+GNSI_LOCATIONS = [
+    GNSILocation("GNSI Plantation", (26.127846, -80.249504)),
+    GNSILocation("GNSI Atlantis", (26.601933, -80.090660)),
+    GNSILocation("GNSI Jensen Beach", (27.2573016, -80.2802879)),
+    GNSILocation("GNSI Fort Pierce", (27.430028, -80.347494)),
+    GNSILocation("GNSI Palm Bay", (28.0192676, -80.6205719)),
+    GNSILocation("GNSI Winter Park", (28.59372, -81.286417)),
+    GNSILocation("GNSI Orlando", (28.512038, -81.370154))
+]
+
+def find_nearest_location(lat: float, lon: float) -> GNSILocation:
+    """Find the nearest GNSI location to given coordinates"""
+    return min(GNSI_LOCATIONS, key=lambda loc: loc.distance_to(lat, lon))
+
+def create_base_map(center_lat: float, center_lon: float, zoom: int = 9) -> folium.Map:
+    """Create a base map with all GNSI locations marked"""
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom)
+    
+    # Add GNSI locations
+    for loc in GNSI_LOCATIONS:
+        folium.Marker(
+            loc.coordinates,
+            popup=loc.name,
+            icon=folium.Icon(color='red', icon='plus', prefix='fa'),
+        ).add_to(m)
+    
+    return m
 
 # Load the data
 file_path = 'doctors_gnsi.xlsx'
@@ -10,7 +65,7 @@ except FileNotFoundError:
     data_main = pd.DataFrame()
 
 try:
-    data_additional = pd.read_excel('Potential Reltaions GNSI ACTUALIZADO.xlsx', sheet_name='Doctor Details')  # Load additional dataset for doctor details
+    data_additional = pd.read_excel('potential_doctors_database.xlsx', sheet_name='Sheet1')  # Load additional dataset for doctor details
 except FileNotFoundError:
     st.error("The additional dataset file was not found. Please check the file path.")
     data_additional = pd.DataFrame()
@@ -20,7 +75,7 @@ st.sidebar.title("GNSI Doctor Analysis")  # Set the title for the sidebar
 st.sidebar.write("Analyze doctors based on unique patients served, referral growth, and other parameters.")  # Sidebar description
 
 # Tabs for different datasets
-tab1, tab2 = st.tabs(["Referring Doctors Ranking", "Potential Market of Doctors"])  # Create two tabs for navigating between different analyses
+tab1, tab2, tab3 = st.tabs(["Referring Doctors Ranking", "Potential Market of Doctors", "Geographic Analysis"])  # Create two tabs for navigating between different analyses
 
 # --- Tab 1: Unique Patients Analysis ---
 with tab1:
@@ -149,18 +204,110 @@ with tab2:
         st.write("### Search for a Doctor")  # Subtitle for search section
         search_query = st.text_input("Enter the doctor's name to search:")  # Input field for doctor name search
         if search_query:
-            matching_doctors = aggregated_data[aggregated_data['Doctor'].str.contains(search_query, case=False, na=False)]  # Search for matching doctor names
+            matching_doctors = aggregated_data[aggregated_data['Doctor'].str.contains(search_query, case=False, na=False)]
             if not matching_doctors.empty:
-                selected_doctor = st.selectbox("Select a doctor", matching_doctors['Doctor'].unique())  # Dropdown with matching doctor names
+                selected_doctor = st.selectbox("Select a doctor", matching_doctors['Doctor'].unique())
                 if selected_doctor:
-                    doctor_data = matching_doctors[matching_doctors['Doctor'] == selected_doctor].iloc[0]  # Get the data for the selected doctor
-                    st.write(f"### Details for {selected_doctor}")  # Display details for the selected doctor
+                    doctor_data = matching_doctors[matching_doctors['Doctor'] == selected_doctor].iloc[0]
+                    
+                    # Display doctor details
+                    st.write(f"### Details for {selected_doctor}")
                     st.write(f"**Contact Numbers:** {doctor_data['Number']}")
                     st.write(f"**Addresses:** {doctor_data['Address']}")
                     st.write(f"**Specialty:** {doctor_data['Specialty']}")
                     st.write(f"**Location:** {doctor_data['Location']}")
                     st.write(f"**Insurance:** {doctor_data['Insurance']}")
+                    
+                    # Get doctor's coordinates from the original dataset
+                    doctor_coords = data_additional[
+                        data_additional['Doctor'] == selected_doctor
+                    ][['Latitude', 'Longitude']].iloc[0]
+                    
+                    if not pd.isna(doctor_coords['Latitude']) and not pd.isna(doctor_coords['Longitude']):
+                        # Create map centered on doctor's location
+                        m = create_base_map(doctor_coords['Latitude'], doctor_coords['Longitude'])
+                        
+                        # Add doctor's marker
+                        folium.Marker(
+                            [doctor_coords['Latitude'], doctor_coords['Longitude']],
+                            popup=selected_doctor,
+                            icon=folium.Icon(color='blue', icon='user-md', prefix='fa')
+                        ).add_to(m)
+                        
+                        # Find and highlight nearest GNSI location
+                        nearest = find_nearest_location(doctor_coords['Latitude'], doctor_coords['Longitude'])
+                        folium.PolyLine(
+                            locations=[
+                                [doctor_coords['Latitude'], doctor_coords['Longitude']],
+                                nearest.coordinates
+                            ],
+                            weight=2,
+                            color='red',
+                            opacity=0.8
+                        ).add_to(m)
+                        
+                        # Display map
+                        st.write("### Location Map")
+                        st_folium(m)
+                        
+                        # Display distance to nearest location
+                        distance = nearest.distance_to(doctor_coords['Latitude'], doctor_coords['Longitude'])
+                        st.write(f"**Nearest GNSI Location:** {nearest.name} ({distance:.1f} miles)")
+                    else:
+                        st.warning("No location data available for this doctor")
             else:
                 st.write("No matching doctors found.")  # Message if no doctors match the search query
     else:
         st.error("The required columns are missing in the additional dataset.")
+
+# --- Tab 3: Geographic Analysis ---
+with tab3:
+    st.title("Geographic Analysis")
+    
+    viz_mode = st.radio(
+        "Select Visualization Mode",
+        ["Individual Doctor Locations"]  # Removed "Doctors per ZIP Code"
+    )
+    
+    selected_gnsi = st.selectbox(
+        "Select GNSI Location",
+        [loc.name for loc in GNSI_LOCATIONS]
+    )
+    selected_loc = next(loc for loc in GNSI_LOCATIONS if loc.name == selected_gnsi)
+    
+    if viz_mode == "Individual Doctor Locations":
+        m = create_base_map(selected_loc.coordinates[0], selected_loc.coordinates[1])
+        
+        radius = st.slider("Radius (miles)", 5, 100, 25)
+        doctors_in_radius = []  # Changed to a list to store doctor information
+        
+        for _, doctor in data_additional.iterrows():
+            if not pd.isna(doctor['Latitude']) and not pd.isna(doctor['Longitude']):
+                dist = selected_loc.distance_to(doctor['Latitude'], doctor['Longitude'])
+                if dist <= radius:
+                    doctor_info = {
+                        'Doctor': doctor['Doctor'],
+                        'Number': doctor['Number'],
+                        'Address': doctor['Address'],
+                        'Distance (miles)': dist  # Calculate and store distance
+                    }
+                    doctors_in_radius.append(doctor_info)  # Store doctor information
+        
+        folium.Circle(
+            selected_loc.coordinates,
+            radius=radius * 1609.34,  # Convert miles to meters
+            color='red',
+            fill=True,
+            opacity=0.2
+        ).add_to(m)
+        
+        st_folium(m)
+        st.write(f"**Total Doctors within {radius} miles:** {len(doctors_in_radius)}")  # Count of doctors
+        
+        # Display contact information table for doctors in radius
+        if doctors_in_radius:
+            contact_info_df = pd.DataFrame(doctors_in_radius)  # Create DataFrame from the list
+            st.write("### Contact Information of Doctors in Radius")
+            st.write(contact_info_df)  # Display relevant columns including distance
+        else:
+            st.write("No doctors found within the selected radius.")
