@@ -1,3 +1,6 @@
-pandas
 streamlit
+pandas
+folium
+streamlit-folium
+googlemaps
 openpyxl
