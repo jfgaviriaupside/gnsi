@@ -266,7 +266,7 @@ with tab3:
     
     viz_mode = st.radio(
         "Select Visualization Mode",
-        ["Individual Doctor Locations"]  # Removed "Doctors per ZIP Code"
+        ["Individual Doctor Locations"]
     )
     
     selected_gnsi = st.selectbox(
@@ -279,20 +279,58 @@ with tab3:
         m = create_base_map(selected_loc.coordinates[0], selected_loc.coordinates[1])
         
         radius = st.slider("Radius (miles)", 5, 100, 25)
-        doctors_in_radius = []  # Changed to a list to store doctor information
+        doctors_in_radius = []
+        
+        # Group doctors by location
+        location_groups = {}
         
         for _, doctor in data_additional.iterrows():
             if not pd.isna(doctor['Latitude']) and not pd.isna(doctor['Longitude']):
+                # Calculate distance using Haversine formula
                 dist = selected_loc.distance_to(doctor['Latitude'], doctor['Longitude'])
+                
                 if dist <= radius:
+                    # Create location key for grouping
+                    loc_key = f"{doctor['Latitude']:.6f},{doctor['Longitude']:.6f}"
+                    
                     doctor_info = {
                         'Doctor': doctor['Doctor'],
                         'Number': doctor['Number'],
                         'Address': doctor['Address'],
-                        'Distance (miles)': dist  # Calculate and store distance
+                        'Distance (miles)': round(dist, 2),  # Round to 2 decimal places
+                        'Latitude': doctor['Latitude'],
+                        'Longitude': doctor['Longitude']
                     }
-                    doctors_in_radius.append(doctor_info)  # Store doctor information
+                    
+                    doctors_in_radius.append(doctor_info)
+                    
+                    # Group doctors by location
+                    if loc_key in location_groups:
+                        location_groups[loc_key].append(doctor_info)
+                    else:
+                        location_groups[loc_key] = [doctor_info]
         
+        # Add markers for each unique location
+        for loc_key, doctors in location_groups.items():
+            lat, lon = map(float, loc_key.split(','))
+            
+            # Create popup content with all doctors at this location
+            popup_content = '<div style="max-width: 200px;">'
+            popup_content += f'<b>Location:</b> {doctors[0]["Address"]}<br><br>'
+            popup_content += '<b>Doctors at this location:</b><br>'
+            for doc in doctors:
+                popup_content += f'• {doc["Doctor"]} ({doc["Distance (miles)"]} miles)<br>'
+            popup_content += '</div>'
+            
+            # Add marker with custom popup
+            folium.Marker(
+                [lat, lon],
+                popup=folium.Popup(popup_content, max_width=300),
+                icon=folium.Icon(color='blue', icon='user-md', prefix='fa'),
+                tooltip=f'{len(doctors)} doctor(s) at this location'
+            ).add_to(m)
+        
+        # Add circle showing radius
         folium.Circle(
             selected_loc.coordinates,
             radius=radius * 1609.34,  # Convert miles to meters
@@ -302,12 +340,21 @@ with tab3:
         ).add_to(m)
         
         st_folium(m)
-        st.write(f"**Total Doctors within {radius} miles:** {len(doctors_in_radius)}")  # Count of doctors
+        
+        # Display summary statistics
+        st.write(f"**Total Doctors within {radius} miles:** {len(doctors_in_radius)}")
+        st.write(f"**Total Unique Locations:** {len(location_groups)}")
         
         # Display contact information table for doctors in radius
         if doctors_in_radius:
-            contact_info_df = pd.DataFrame(doctors_in_radius)  # Create DataFrame from the list
+            # Sort doctors by distance
+            contact_info_df = pd.DataFrame(doctors_in_radius).sort_values('Distance (miles)')
+            
             st.write("### Contact Information of Doctors in Radius")
-            st.write(contact_info_df)  # Display relevant columns including distance
+            # Display table with formatted distance
+            st.write(
+                contact_info_df[['Doctor', 'Number', 'Address', 'Distance (miles)']]
+                .style.format({'Distance (miles)': '{:.2f}'})
+            )
         else:
             st.write("No doctors found within the selected radius.")
